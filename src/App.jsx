@@ -284,6 +284,7 @@ export default function App() {
       if((e.ctrlKey||e.metaKey)&&e.key==="b"){e.preventDefault();setSidebarOpen(o=>!o);}
       if((e.ctrlKey||e.metaKey)&&e.key==="i"){e.preventDefault();setPanel("intel");}
       if((e.ctrlKey||e.metaKey)&&e.key==="/"){ e.preventDefault();setPanel("keys");}
+      if((e.ctrlKey||e.metaKey)&&e.key==="h"){ e.preventDefault();setPanel("help");}
       if((e.ctrlKey||e.metaKey)&&e.key==="ArrowRight"){
         e.preventDefault();
         const idx=CATEGORIES.indexOf(category);
@@ -460,6 +461,7 @@ export default function App() {
               {label:"Hist",icon:"clock",p:"hist",color:"#8b949e",badge:copyHist.length||null},
               {label:"Vars",icon:"vars",p:"vars",color:"#58a6ff"},
               {label:"⌨",icon:null,p:"keys",color:"#8b949e"},
+              {label:"?",icon:null,p:"help",color:"#58a6ff"},
             ].map(({label,icon,p,color,badge})=>(
               <button key={p} className="btn" onClick={()=>setPanel(panel===p?null:p)}
                 style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",border:`1px solid ${panel===p?color:"#30363d"}`,borderRadius:6,fontSize:11,color:panel===p?color:"#8b949e",background:panel===p?`${color}15`:"transparent",position:"relative"}}>
@@ -754,6 +756,7 @@ export default function App() {
               ["Ctrl+Shift+A","Adicionar comando"],
               ["Ctrl+Shift+F","Favoritos"],
               ["Ctrl+/","Atalhos de teclado"],
+              ["Ctrl+H","Como usar (tutorial)"],
               ["Ctrl+→","Próxima categoria"],
               ["Ctrl+←","Categoria anterior"],
               ["Esc","Fechar painel"],
@@ -763,6 +766,103 @@ export default function App() {
                 <kbd style={{background:"#161b22",border:"1px solid #30363d",borderRadius:4,padding:"1px 7px",color:"#58a6ff",fontSize:11}}>{k}</kbd>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* HELP / TUTORIAL PANEL */}
+      {panel==="help"&&(
+        <div className="panel" style={{width:480}}>
+          <PanelHeader title="COMO USAR" color="#58a6ff" onClose={()=>setPanel(null)}/>
+          <div style={{padding:"0 20px 24px",fontSize:12,color:"#c9d1d9",lineHeight:1.7}}>
+
+            {[
+              {
+                color:"#58a6ff", title:"🔍 Busca",
+                items:[
+                  "Digite qualquer palavra na barra de busca para filtrar comandos por título, descrição ou conteúdo.",
+                  "Use Ctrl+K para focar rapidamente na busca.",
+                ]
+              },
+              {
+                color:"#f7c948", title:"📂 Categorias e Tags",
+                items:[
+                  "Clique nas abas de categoria no topo para filtrar por área (Recon, Web Attacks, Windows Admin, etc.).",
+                  "Use as tags (Critical, High, OSEP…) na sidebar para filtrar por severidade ou contexto.",
+                  "Ctrl+→ / Ctrl+← navega entre categorias.",
+                ]
+              },
+              {
+                color:"#00ff88", title:"⚙️ Variáveis Globais (Vars)",
+                items:[
+                  "Clique em Vars (ou Ctrl+V) e preencha os campos: LHOST, RHOST, LPORT, USER, PASS, DOMAIN, etc.",
+                  "Todos os comandos substituem automaticamente os placeholders {LHOST}, {RHOST} etc. pelos valores que você definiu.",
+                  "Isso evita editar cada comando manualmente durante uma sessão.",
+                ]
+              },
+              {
+                color:"#f7c948", title:"⭐ Favoritos",
+                items:[
+                  "Clique na estrela em qualquer card para favoritar.",
+                  "Acesse todos os favoritos pelo painel Favs (Ctrl+Shift+F).",
+                  "Favoritos ficam salvos no seu navegador (localStorage).",
+                ]
+              },
+              {
+                color:"#00ff88", title:"➕ Adicionar Comandos",
+                items:[
+                  "Clique em Novo (Ctrl+Shift+A) para criar um comando personalizado.",
+                  "Escolha a categoria, adicione tags e use {LHOST}, {RHOST} como placeholders.",
+                  "⚠️ Comandos criados ficam salvos apenas no SEU navegador (localStorage). Outros usuários não verão — cada pessoa tem seu próprio armazenamento local.",
+                ]
+              },
+              {
+                color:"#bc8cff", title:"🤖 Assistente IA",
+                items:[
+                  "Em qualquer card, clique no botão IA (ícone roxo) para abrir o assistente.",
+                  "Modos disponíveis:",
+                  "  • Explain — explica o que o comando faz linha a linha.",
+                  "  • Improve — sugere melhorias ou variações do comando.",
+                  "  • Ask — faça uma pergunta livre sobre o comando.",
+                  "Para usar a IA você precisa configurar sua chave da API no painel Vars (campo AI_KEY) — a chave nunca sai do seu navegador.",
+                ]
+              },
+              {
+                color:"#f85149", title:"🎯 Target Intel",
+                items:[
+                  "Painel para anotar informações do alvo: nome, escopo, objetivo, credenciais encontradas, flags capturadas e hosts de pivô.",
+                  "Acesse com Ctrl+I. Os dados ficam salvos localmente.",
+                ]
+              },
+              {
+                color:"#8b949e", title:"📋 Histórico de Cópias",
+                items:[
+                  "Cada vez que você copia um comando, ele vai para o Hist.",
+                  "Permite revisar o que foi executado durante a sessão.",
+                ]
+              },
+              {
+                color:"#8b949e", title:"💾 O que é salvo no navegador",
+                items:[
+                  "✅ Favoritos, Variáveis, Comandos customizados, Notas, Target Intel, Histórico.",
+                  "❌ Comandos adicionados por outras pessoas não aparecem para você — cada usuário tem armazenamento independente.",
+                  "Para compartilhar comandos, exporte pelo botão Export (ícone de download) e envie o JSON para outra pessoa importar.",
+                ]
+              },
+            ].map(({color,title,items})=>(
+              <div key={title} style={{marginBottom:18}}>
+                <div style={{color,fontWeight:700,fontSize:13,marginBottom:6,borderBottom:`1px solid ${color}30`,paddingBottom:4}}>{title}</div>
+                <ul style={{margin:0,paddingLeft:16}}>
+                  {items.map((it,i)=>(
+                    <li key={i} style={{marginBottom:3,color: it.startsWith("  •")?"#8b949e":"#c9d1d9"}}>{it}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+
+            <div style={{marginTop:8,padding:"10px 14px",background:"#161b22",borderRadius:6,border:"1px solid #30363d",fontSize:11,color:"#8b949e"}}>
+              Atalho rápido: <kbd style={{background:"#21262d",border:"1px solid #30363d",borderRadius:3,padding:"1px 6px",color:"#58a6ff"}}>Ctrl+H</kbd> abre este painel a qualquer momento.
+            </div>
           </div>
         </div>
       )}
