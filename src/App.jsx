@@ -434,7 +434,7 @@ export default function App() {
         if(d.error) throw new Error(d.error.message);
         text=d.choices?.[0]?.message?.content||"Sem resposta.";
       } else {
-        const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
+        const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,{
           method:"POST",
           headers:{"Content-Type":"application/json"},
           body:JSON.stringify({contents:[{parts:[{text:prompts[mode]}]}],generationConfig:{maxOutputTokens:1200}}),
