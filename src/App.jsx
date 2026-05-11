@@ -401,24 +401,42 @@ export default function App() {
     };
     const apiKey = vars.AI_KEY||"";
     if(!apiKey){
-      setAiResult("⚠️ Chave de API não configurada.\n\nVá em **Vars** e preencha o campo **AI_KEY** com sua chave da Anthropic (começa com `sk-ant-...`).\n\nObtendo sua chave: https://console.anthropic.com/settings/keys");
+      setAiResult("⚠️ Chave de API não configurada.\n\nVá em **Vars** e preencha o campo **AI_KEY** com sua chave:\n- Anthropic → `sk-ant-...` → console.anthropic.com/settings/keys\n- OpenAI → `sk-...` → platform.openai.com/api-keys\n- Gemini → `AIza...` → aistudio.google.com/apikey\n\nO provedor é detectado automaticamente pelo prefixo da chave.");
       setAiLoading(false); return;
     }
+    const provider = apiKey.startsWith("sk-ant-") ? "anthropic" : apiKey.startsWith("AIza") ? "gemini" : "openai";
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "x-api-key":apiKey,
-          "anthropic-version":"2023-06-01",
-          "anthropic-dangerous-direct-browser-access":"true",
-        },
-        body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1200,messages:[{role:"user",content:prompts[mode]}]}),
-      });
-      const data=await res.json();
-      if(data.error) setAiResult(`Erro da API: ${data.error.message}`);
-      else setAiResult(data.content?.[0]?.text||"Sem resposta.");
-    }catch(e){setAiResult(`Erro ao contactar a API: ${e.message}`);}
+      let text="";
+      if(provider==="anthropic"){
+        const res=await fetch("https://api.anthropic.com/v1/messages",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+          body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1200,messages:[{role:"user",content:prompts[mode]}]}),
+        });
+        const d=await res.json();
+        if(d.error) throw new Error(d.error.message);
+        text=d.content?.[0]?.text||"Sem resposta.";
+      } else if(provider==="openai"){
+        const res=await fetch("https://api.openai.com/v1/chat/completions",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+          body:JSON.stringify({model:"gpt-4o-mini",max_tokens:1200,messages:[{role:"user",content:prompts[mode]}]}),
+        });
+        const d=await res.json();
+        if(d.error) throw new Error(d.error.message);
+        text=d.choices?.[0]?.message?.content||"Sem resposta.";
+      } else {
+        const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({contents:[{parts:[{text:prompts[mode]}]}],generationConfig:{maxOutputTokens:1200}}),
+        });
+        const d=await res.json();
+        if(d.error) throw new Error(d.error.message);
+        text=d.candidates?.[0]?.content?.parts?.[0]?.text||"Sem resposta.";
+      }
+      setAiResult(`[${provider.toUpperCase()}]\n\n${text}`);
+    }catch(e){setAiResult(`Erro ao contactar a API (${provider}): ${e.message}`);}
     setAiLoading(false);
   }
 
@@ -882,7 +900,11 @@ export default function App() {
                   "  • Explain — explica o que o comando faz linha a linha.",
                   "  • Improve — sugere melhorias ou variações do comando.",
                   "  • Ask — faça uma pergunta livre sobre o comando.",
-                  "Para usar a IA você precisa configurar sua chave da API no painel Vars (campo AI_KEY) — a chave nunca sai do seu navegador.",
+                  "Para usar a IA configure sua chave no painel Vars (campo AI_KEY). O provedor é detectado automaticamente pelo prefixo da chave:",
+                  "  • sk-ant-... → Anthropic (Claude Haiku)",
+                  "  • sk-...     → OpenAI (GPT-4o Mini)",
+                  "  • AIza...    → Google Gemini 2.0 Flash",
+                  "A chave nunca sai do seu navegador.",
                 ]
               },
               {
