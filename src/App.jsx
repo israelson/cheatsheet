@@ -395,7 +395,7 @@ export default function App() {
   async function callAI(mode,cmd){
     setAiMode(mode); setAiCmd(cmd); setPanel("ai"); setAiLoading(true); setAiResult("");
     const prompts={
-      explain:`Explique em português de forma clara e técnica o que este comando faz, seus parâmetros e quando usá-lo:\n\`\`\`\n${cmd?.command||""}\n\`\`\``,
+      explain:`Explique em português de forma clara e técnica o seguinte comando. Estruture a resposta em 3 partes:\n1. **O que faz** — explique o comando, seus parâmetros e quando usá-lo.\n2. **Dependências** — liste cada ferramenta/pacote que precisa estar instalado para executar este comando. Para cada um, inclua o comando de instalação no Debian/Ubuntu (apt) e, se aplicável, no RHEL/Fedora (dnf) ou Windows (winget/choco). Se o comando for nativo do SO e não precisar de instalação, diga isso explicitamente.\n3. **Exemplo prático** — um exemplo real de uso com saída esperada.\n\`\`\`\n${cmd?.command||""}\n\`\`\``,
       suggest:`Sugira 3 variações úteis deste comando para diferentes cenários. Responda em português com cada variação em bloco de código separado e uma linha explicando:\n\`\`\`\n${cmd?.command||""}\n\`\`\``,
       generate:`Gere um comando de terminal para a seguinte tarefa: "${aiPrompt}". Responda em português com o comando em bloco de código e uma explicação breve.`,
     };
