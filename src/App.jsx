@@ -222,11 +222,11 @@ const INITIAL_COMMANDS = [
 ];
 
 // ── VARS ──────────────────────────────────────────────────────────────────────
-const VAR_KEYS = ["LHOST","RHOST","LPORT","RPORT","DOMAIN","DC","USER","PASS","HASH","URL"];
+const VAR_KEYS = ["LHOST","RHOST","LPORT","RPORT","DOMAIN","DC","USER","PASS","HASH","URL","AI_KEY"];
 const VAR_PLACEHOLDERS = {
   LHOST:"10.10.14.1",RHOST:"10.10.10.10",LPORT:"4444",RPORT:"80",
   DOMAIN:"corp.local",DC:"dc01.corp.local",USER:"administrator",
-  PASS:"Password123",HASH:"aad3b435...",URL:"http://target/"
+  PASS:"Password123",HASH:"aad3b435...",URL:"http://target/",AI_KEY:""
 };
 
 function applyVars(cmd, vars) {
@@ -399,15 +399,26 @@ export default function App() {
       suggest:`Sugira 3 variações úteis deste comando para diferentes cenários. Responda em português com cada variação em bloco de código separado e uma linha explicando:\n\`\`\`\n${cmd?.command||""}\n\`\`\``,
       generate:`Gere um comando de terminal para a seguinte tarefa: "${aiPrompt}". Responda em português com o comando em bloco de código e uma explicação breve.`,
     };
+    const apiKey = vars.AI_KEY||"";
+    if(!apiKey){
+      setAiResult("⚠️ Chave de API não configurada.\n\nVá em **Vars** e preencha o campo **AI_KEY** com sua chave da Anthropic (começa com `sk-ant-...`).\n\nObtendo sua chave: https://console.anthropic.com/settings/keys");
+      setAiLoading(false); return;
+    }
     try{
       const res=await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompts[mode]}]}),
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key":apiKey,
+          "anthropic-version":"2023-06-01",
+          "anthropic-dangerous-direct-browser-access":"true",
+        },
+        body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1200,messages:[{role:"user",content:prompts[mode]}]}),
       });
       const data=await res.json();
-      setAiResult(data.content?.[0]?.text||"Sem resposta.");
-    }catch{setAiResult("Erro ao contactar a API.");}
+      if(data.error) setAiResult(`Erro da API: ${data.error.message}`);
+      else setAiResult(data.content?.[0]?.text||"Sem resposta.");
+    }catch(e){setAiResult(`Erro ao contactar a API: ${e.message}`);}
     setAiLoading(false);
   }
 
