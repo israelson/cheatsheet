@@ -271,6 +271,14 @@ const I = ({ n, s=14 }) => {
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
+  const [lgpdAccepted, setLgpdAccepted] = useState(() => localStorage.getItem("cs_lgpd") === "1");
+
+  function acceptLgpd(){ localStorage.setItem("cs_lgpd","1"); setLgpdAccepted(true); }
+  function clearAllData(){
+    ["cs_custom","cs_favs","cs_vars","cs_hist","cs_intel","cs_notes","cs_lgpd"].forEach(k=>localStorage.removeItem(k));
+    window.location.reload();
+  }
+
   // Commands
   const [commands, setCommands] = useState(() => {
     try { const s=localStorage.getItem("cs_custom"); return s?[...INITIAL_COMMANDS,...JSON.parse(s)]:INITIAL_COMMANDS; }
@@ -463,6 +471,39 @@ export default function App() {
 
   const favList=commands.filter(c=>favs.has(c.id));
 
+  if(!lgpdAccepted) return (
+    <div style={{fontFamily:"'JetBrains Mono','Fira Code',monospace",background:"#0a0c0f",minHeight:"100vh",color:"#c9d1d9",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{maxWidth:560,background:"#0d1117",border:"1px solid #30363d",borderRadius:12,padding:32}}>
+        <div style={{color:"#00ff88",fontWeight:700,fontSize:16,marginBottom:4,letterSpacing:1}}>AVISO DE PRIVACIDADE</div>
+        <div style={{color:"#58a6ff",fontSize:10,marginBottom:20,letterSpacing:2}}>LGPD — LEI Nº 13.709/2018</div>
+
+        {[
+          {color:"#58a6ff",title:"📦 O que é armazenado",body:"Todas as suas informações — favoritos, variáveis (incluindo a chave de API), comandos personalizados, notas, Target Intel e histórico de cópias — ficam salvas exclusivamente no armazenamento local do seu navegador (localStorage). Nenhum dado é enviado a servidores desta aplicação."},
+          {color:"#f7c948",title:"🤖 Uso da IA",body:"Quando você usa o assistente de IA, o texto do comando selecionado é enviado diretamente ao provedor escolhido (Anthropic, OpenAI ou Google) usando a chave de API que você mesmo configurou. Esta aplicação não tem acesso à sua chave nem intercepta essa comunicação. Consulte a política de privacidade do provedor para saber como ele trata os dados recebidos."},
+          {color:"#f85149",title:"🚫 O que não fazemos",body:"Esta aplicação não coleta dados pessoais, não usa cookies de rastreamento, não possui analytics, não tem backend próprio e não compartilha nenhuma informação com terceiros. Todo o código é aberto e auditável no GitHub."},
+          {color:"#8b949e",title:"🗑️ Seus direitos",body:"Você pode apagar todos os seus dados locais a qualquer momento clicando em \"Apagar todos os meus dados\" abaixo. Isso remove permanentemente tudo que está salvo no navegador e recarrega a aplicação."},
+        ].map(({color,title,body})=>(
+          <div key={title} style={{marginBottom:18}}>
+            <div style={{color,fontWeight:700,fontSize:12,marginBottom:5}}>{title}</div>
+            <div style={{color:"#8b949e",fontSize:11,lineHeight:1.7}}>{body}</div>
+          </div>
+        ))}
+
+        <div style={{display:"flex",gap:10,marginTop:24,flexWrap:"wrap"}}>
+          <button onClick={acceptLgpd} style={{flex:1,minWidth:160,padding:"10px 20px",background:"#00ff88",color:"#0a0c0f",border:"none",borderRadius:6,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",letterSpacing:1}}>
+            ENTENDI E ACEITO
+          </button>
+          <button onClick={clearAllData} style={{padding:"10px 16px",background:"transparent",color:"#f85149",border:"1px solid #f85149",borderRadius:6,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
+            Apagar todos os meus dados
+          </button>
+        </div>
+        <div style={{marginTop:14,fontSize:10,color:"#484f58",textAlign:"center"}}>
+          Ao continuar, você declara que leu e compreendeu este aviso conforme a LGPD (Lei nº 13.709/2018).
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{fontFamily:"'JetBrains Mono','Fira Code',monospace",background:"#0a0c0f",minHeight:"100vh",color:"#c9d1d9",display:"flex",flexDirection:"column"}}>
       <style>{`
@@ -548,6 +589,11 @@ export default function App() {
             <button className="btn" onClick={()=>setPanel("add")}
               style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",border:"1px solid #00ff88",borderRadius:6,fontSize:11,color:"#00ff88",background:"rgba(0,255,136,.07)"}}>
               <I n="plus" s={12}/>Novo
+            </button>
+            <button className="btn" onClick={()=>{ localStorage.removeItem("cs_lgpd"); window.location.reload(); }}
+              title="Aviso de Privacidade (LGPD)"
+              style={{padding:"5px 8px",border:"1px solid #30363d",borderRadius:6,fontSize:10,color:"#484f58",background:"transparent"}}>
+              LGPD
             </button>
           </div>
         </div>
