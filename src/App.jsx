@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { initPresence } from "./firebase";
 
 // ── CATEGORIES ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -8,7 +9,7 @@ const CATEGORIES = [
   "AD Recon","AD Attacks","AD Lateral",
   "Persistence","Evasion / OPSEC","C2 Frameworks","Tunneling","File Transfer",
   "Injection","Sysadmin","Firewall / FortiGate","Redes / Cloud","Hash Cracking",
-  "Wireshark / TShark","Misc / Snippets","Custom"
+  "Misc / Snippets","Custom"
 ];
 
 const TAG_STYLE = {
@@ -215,33 +216,6 @@ const INITIAL_COMMANDS = [
   {id:122,title:"Política de Senha do Domínio",category:"Windows Server",tags:["medium"],command:"Get-ADDefaultDomainPasswordPolicy | Select MinPasswordLength,PasswordHistoryCount,MaxPasswordAge,LockoutThreshold",desc:"Exibe a política de senha padrão do domínio"},
   {id:123,title:"Backup de Estado do Sistema",category:"Windows Server",tags:["high"],command:"wbadmin start systemstatebackup -backuptarget:{RHOST}:",desc:"Inicia backup do estado do sistema (AD, DNS, registro)"},
   {id:124,title:"Verificar Saúde do AD",category:"Windows Server",tags:["high"],command:"dcdiag /test:replications /test:dns /test:netlogons /v",desc:"Diagnóstico completo do Domain Controller"},
-
-  // Wireshark / TShark
-  {id:200,title:"[TSHARK] Capturar por Interface",category:"Wireshark / TShark",tags:["medium"],command:"tshark -i eth0 -w /tmp/cap.pcap",desc:"Captura todo o tráfego na interface e salva em pcap"},
-  {id:201,title:"[TSHARK] Capturar por Host",category:"Wireshark / TShark",tags:["medium"],command:"tshark -i any -w /tmp/cap.pcap host {RHOST}",desc:"Captura pacotes de/para um IP específico"},
-  {id:202,title:"[TSHARK] Capturar por Porta",category:"Wireshark / TShark",tags:["medium"],command:"tshark -i any -w /tmp/cap.pcap port {RPORT}",desc:"Captura tráfego em uma porta específica"},
-  {id:203,title:"[TSHARK] Ler pcap com Filtro",category:"Wireshark / TShark",tags:["medium"],command:"tshark -r /tmp/cap.pcap -Y \"http.request\" -T fields -e ip.src -e http.host -e http.request.uri",desc:"Lê pcap e exibe campos de requests HTTP"},
-  {id:204,title:"[TSHARK] Extrair POST (Credenciais)",category:"Wireshark / TShark",tags:["high"],command:"tshark -r /tmp/cap.pcap -Y \"http.request.method == POST\" -T fields -e ip.src -e http.host -e http.file_data",desc:"Extrai dados de formulários POST em texto claro"},
-  {id:205,title:"[TSHARK] DNS em Tempo Real",category:"Wireshark / TShark",tags:["medium"],command:"tshark -i any -Y dns -T fields -e ip.src -e dns.qry.name -e dns.a",desc:"Monitora queries DNS com resolução de endereços"},
-  {id:206,title:"[TSHARK] Estatísticas por IP",category:"Wireshark / TShark",tags:["medium"],command:"tshark -r /tmp/cap.pcap -q -z conv,ip",desc:"Exibe estatísticas de conversação entre pares de IPs"},
-  {id:207,title:"[TSHARK] Top Protocolos",category:"Wireshark / TShark",tags:["medium"],command:"tshark -r /tmp/cap.pcap -q -z io,phs",desc:"Hierarquia de protocolos capturados com contadores"},
-  {id:208,title:"[TSHARK] Exportar Objetos HTTP",category:"Wireshark / TShark",tags:["high"],command:"tshark -r /tmp/cap.pcap --export-objects http,/tmp/http_objs",desc:"Extrai arquivos transferidos via HTTP do pcap"},
-  {id:209,title:"[TSHARK] Seguir Stream TCP",category:"Wireshark / TShark",tags:["medium"],command:"tshark -r /tmp/cap.pcap -q -z follow,tcp,ascii,0",desc:"Reconstrói o primeiro stream TCP em ASCII"},
-  {id:210,title:"[TSHARK] Captura SMB/NTLM",category:"Wireshark / TShark",tags:["high"],command:"tshark -i any -w /tmp/smb.pcap -f \"port 445 or port 139\"",desc:"Captura tráfego SMB para análise de hashes NTLM"},
-  {id:211,title:"[FILTER] HTTP Requests",category:"Wireshark / TShark",tags:["medium"],command:"http.request",desc:"[Display Filter] Apenas requests HTTP"},
-  {id:212,title:"[FILTER] DNS",category:"Wireshark / TShark",tags:["medium"],command:"dns",desc:"[Display Filter] Apenas pacotes DNS"},
-  {id:213,title:"[FILTER] TLS/HTTPS",category:"Wireshark / TShark",tags:["medium"],command:"tls",desc:"[Display Filter] Tráfego TLS/SSL"},
-  {id:214,title:"[FILTER] TCP SYN Scan",category:"Wireshark / TShark",tags:["high"],command:"tcp.flags.syn==1 && tcp.flags.ack==0",desc:"[Display Filter] Detecta SYN scan"},
-  {id:215,title:"[FILTER] TCP RST",category:"Wireshark / TShark",tags:["medium"],command:"tcp.flags.reset==1",desc:"[Display Filter] Resets TCP — portas fechadas"},
-  {id:216,title:"[FILTER] FTP e Telnet",category:"Wireshark / TShark",tags:["critical"],command:"ftp || telnet",desc:"[Display Filter] Credenciais em texto claro"},
-  {id:217,title:"[FILTER] SMB e NTLM",category:"Wireshark / TShark",tags:["high"],command:"smb || smb2 || ntlmssp",desc:"[Display Filter] Tráfego SMB e handshake NTLM"},
-  {id:218,title:"[FILTER] IP de Origem",category:"Wireshark / TShark",tags:["medium"],command:"ip.src == {RHOST}",desc:"[Display Filter] Pacotes de um IP específico"},
-  {id:219,title:"[FILTER] Porta de Destino",category:"Wireshark / TShark",tags:["medium"],command:"tcp.dstport == {RPORT} || udp.dstport == {RPORT}",desc:"[Display Filter] Pacotes para uma porta"},
-  {id:220,title:"[FILTER] ICMP",category:"Wireshark / TShark",tags:["medium"],command:"icmp",desc:"[Display Filter] Apenas tráfego ICMP"},
-  {id:221,title:"[BPF] Host Específico",category:"Wireshark / TShark",tags:["medium"],command:"host {RHOST}",desc:"[Capture BPF] Captura tráfego de/para um host"},
-  {id:222,title:"[BPF] Subnet Completa",category:"Wireshark / TShark",tags:["medium"],command:"net 10.10.10.0/24",desc:"[Capture BPF] Captura toda uma subnet"},
-  {id:223,title:"[BPF] Porta Específica",category:"Wireshark / TShark",tags:["medium"],command:"port {RPORT}",desc:"[Capture BPF] TCP e UDP em uma porta"},
-  {id:224,title:"[BPF] Excluir ARP e ICMP",category:"Wireshark / TShark",tags:["medium"],command:"not arp and not icmp",desc:"[Capture BPF] Remove ruído de ARP e ping"},
   // Misc / Snippets
   {id:82,title:"Socat Bind Shell",category:"Misc / Snippets",tags:["high"],command:"socat TCP-LISTEN:{LPORT},reuseaddr,fork EXEC:/bin/bash,pty,stderr,setsid,sigint,sane",desc:"Bind shell via socat com PTY"},
   {id:83,title:"Tcpdump Captura",category:"Misc / Snippets",tags:["medium"],command:"tcpdump -i any -w /tmp/cap.pcap 'host {RHOST}'",desc:"Captura tráfego de/para host específico"},
@@ -299,12 +273,15 @@ const I = ({ n, s=14 }) => {
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [lgpdAccepted, setLgpdAccepted] = useState(() => localStorage.getItem("cs_lgpd") === "1");
+  const [onlineCount, setOnlineCount] = useState(1);
 
   function acceptLgpd(){ localStorage.setItem("cs_lgpd","1"); setLgpdAccepted(true); }
   function clearAllData(){
     ["cs_custom","cs_favs","cs_vars","cs_hist","cs_intel","cs_notes","cs_lgpd"].forEach(k=>localStorage.removeItem(k));
     window.location.reload();
   }
+
+  useEffect(() => { if(lgpdAccepted) initPresence(setOnlineCount); }, [lgpdAccepted]);
 
   // Commands
   const [commands, setCommands] = useState(() => {
@@ -587,6 +564,11 @@ export default function App() {
             onClick={()=>setTimerRunning(r=>!r)} onDoubleClick={()=>{setTimerRunning(false);setTimerSeconds(0);}}>
             <I n="clock" s={12}/>
             <span style={{fontFamily:"'Orbitron',monospace",fontSize:12,color:timerRunning?"#00ff88":"#8b949e"}}>{formatTime(timerSeconds)}</span>
+          </div>
+          <div title="Usuários online agora" style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",border:"1px solid #21262d",borderRadius:6,fontSize:11,color:onlineCount>1?"#00ff88":"#8b949e"}}>
+            <span style={{fontSize:14,lineHeight:1}}>●</span>
+            <span style={{fontFamily:"'Orbitron',monospace",fontSize:11}}>{onlineCount}</span>
+            <span style={{fontSize:10,color:"#484f58"}}>online</span>
           </div>
 
           {/* Search */}
