@@ -1,13 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { initPresence } from "./firebase";
-import hljs from "highlight.js/lib/core";
-import bash from "highlight.js/lib/languages/bash";
-import powershell from "highlight.js/lib/languages/powershell";
-import python from "highlight.js/lib/languages/python";
-import "highlight.js/styles/atom-one-dark.css";
-hljs.registerLanguage("bash", bash);
-hljs.registerLanguage("powershell", powershell);
-hljs.registerLanguage("python", python);
 
 // ── CATEGORIES ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -238,19 +230,6 @@ const VAR_PLACEHOLDERS = {
   PASS:"Password123",HASH:"aad3b435...",URL:"http://target/",AI_KEY:""
 };
 
-function detectLang(cmd) {
-  if (/Get-|Set-|New-|Invoke-|\$_|Write-Host|\[Ref\]/.test(cmd)) return "powershell";
-  if (/^\s*import |^\s*def |print\(|python3?/.test(cmd)) return "python";
-  return "bash";
-}
-
-function highlightCmd(cmd) {
-  try {
-    const lang = detectLang(cmd);
-    return hljs.highlight(cmd, { language: lang }).value;
-  } catch { return cmd; }
-}
-
 function applyVars(cmd, vars) {
   return VAR_KEYS.reduce((acc, k) => acc.replaceAll(`{${k}}`, vars[k] || `{${k}}`), cmd);
 }
@@ -339,6 +318,7 @@ export default function App() {
 
   const searchRef = useRef(null);
   const mainRef = useRef(null);
+  const importRef = useRef(null);
 
   // Persist
   useEffect(()=>{localStorage.setItem("cs_favs",JSON.stringify([...favs]));},[favs]);
@@ -471,6 +451,45 @@ export default function App() {
       setAiResult(`[${provider.toUpperCase()}]\n\n${text}`);
     }catch(e){setAiResult(`Erro ao contactar a API (${provider}): ${e.message}`);}
     setAiLoading(false);
+  }
+
+  function exportCustomCommands(){
+    const custom = commands.filter(c => c.id > 1000);
+    if(!custom.length){ alert("Nenhum comando customizado para exportar."); return; }
+    const data = JSON.stringify({version:1, exported: new Date().toISOString(), commands: custom}, null, 2);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([data], {type:"application/json"}));
+    a.download = `cheatsheet_commands_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  }
+
+  function importCommands(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        const incoming = Array.isArray(parsed) ? parsed : parsed.commands;
+        if(!Array.isArray(incoming)) throw new Error("Formato inválido");
+        const valid = incoming.filter(c => c.title && c.command && c.category);
+        if(!valid.length) throw new Error("Nenhum comando válido encontrado");
+        const existingIds = new Set(commands.map(c => String(c.id)));
+        const newCmds = valid.map(c => ({
+          ...c,
+          id: existingIds.has(String(c.id)) ? Date.now() + Math.random() : c.id,
+          tags: Array.isArray(c.tags) ? c.tags : [],
+        }));
+        const updated = [...commands, ...newCmds];
+        setCommands(updated);
+        localStorage.setItem("cs_custom", JSON.stringify(updated.filter(c => c.id > 1000)));
+        alert(`✅ ${newCmds.length} comando(s) importado(s) com sucesso!`);
+      } catch(err) {
+        alert(`❌ Erro ao importar: ${err.message}`);
+      }
+      e.target.value = "";
+    };
+    reader.readAsText(file);
   }
 
   function exportIntel(){
@@ -620,6 +639,17 @@ export default function App() {
               style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",border:"1px solid #00ff88",borderRadius:6,fontSize:11,color:"#00ff88",background:"rgba(0,255,136,.07)"}}>
               <I n="plus" s={12}/>Novo
             </button>
+            <button className="btn" onClick={exportCustomCommands}
+              title="Exportar comandos customizados como JSON"
+              style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",border:"1px solid #30363d",borderRadius:6,fontSize:11,color:"#8b949e",background:"transparent"}}>
+              <I n="export" s={12}/>Export
+            </button>
+            <button className="btn" onClick={()=>importRef.current?.click()}
+              title="Importar comandos de arquivo JSON"
+              style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",border:"1px solid #58a6ff",borderRadius:6,fontSize:11,color:"#58a6ff",background:"rgba(88,166,255,.07)"}}>
+              <I n="import" s={12}/>Import
+            </button>
+            <input ref={importRef} type="file" accept=".json" onChange={importCommands} style={{display:"none"}}/>
             <button className="btn" onClick={()=>{ localStorage.removeItem("cs_lgpd"); window.location.reload(); }}
               title="Aviso de Privacidade (LGPD)"
               style={{padding:"5px 8px",border:"1px solid #30363d",borderRadius:6,fontSize:10,color:"#484f58",background:"transparent"}}>
@@ -1002,7 +1032,9 @@ export default function App() {
                 items:[
                   "✅ Favoritos, Variáveis, Comandos customizados, Notas, Target Intel, Histórico.",
                   "❌ Comandos adicionados por outras pessoas não aparecem para você — cada usuário tem armazenamento independente.",
-                  "Para compartilhar comandos, exporte pelo botão Export (ícone de download) e envie o JSON para outra pessoa importar.",
+                  "Use o botão Export na toolbar para baixar seus comandos customizados como JSON.",
+                  "Compartilhe o arquivo com outra pessoa — ela clica em Import e os comandos são adicionados automaticamente.",
+                  "O JSON também serve como backup dos seus comandos personalizados.",
                 ]
               },
             ].map(({color,title,items})=>(
@@ -1104,11 +1136,7 @@ function CmdCard({cmd,vars,favs,copied,onCopy,onFav,onAI,onDelete,compact}){
             {!compact&&<span style={{fontSize:9,color:"#30363d",marginLeft:"auto"}}>{cmd.category}</span>}
           </div>
           {cmd.desc&&<p style={{fontSize:11,color:"#8b949e",marginBottom:6}}>{cmd.desc}</p>}
-          <code
-            className="cmd-text hljs"
-            style={{borderLeft: hasVars ? "2px solid #00ff88" : "2px solid transparent", paddingLeft: 6, display:"block"}}
-            dangerouslySetInnerHTML={{__html: highlightCmd(resolved)}}
-          />
+          <code className={`cmd-text${hasVars?" resolved":""}`}>{resolved}</code>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:3,flexShrink:0}}>
           <button className="btn" onClick={()=>onCopy(cmd.command,cmd.id,cmd.title)}
