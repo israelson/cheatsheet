@@ -294,6 +294,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [tagFilter, setTagFilter] = useState([]);
+  const [sortBy, setSortBy] = useState("default");
   const [copied, setCopied] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   // Panels
@@ -310,6 +311,7 @@ export default function App() {
   const [timerSeconds, setTimerSeconds] = useState(0);
   // Copy history
   const [copyHist, setCopyHist] = useState(() => { try{return JSON.parse(localStorage.getItem("cs_hist")||"[]");}catch{return [];} });
+  const [usageCount, setUsageCount] = useState(() => { try{return JSON.parse(localStorage.getItem("cs_usage")||"{}");}catch{return {};} });
   // Target Intel
   const [intel, setIntel] = useState(() => { try{return JSON.parse(localStorage.getItem("cs_intel")||"null")||{name:"",scope:"",objective:"",creds:[],flags:[],pivots:[]};}catch{return {name:"",scope:"",objective:"",creds:[],flags:[],pivots:[]};} });
   // Notes
@@ -318,7 +320,6 @@ export default function App() {
 
   const searchRef = useRef(null);
   const mainRef = useRef(null);
-  const importRef = useRef(null);
 
   // Persist
   useEffect(()=>{localStorage.setItem("cs_favs",JSON.stringify([...favs]));},[favs]);
@@ -326,6 +327,7 @@ export default function App() {
   useEffect(()=>{localStorage.setItem("cs_hist",JSON.stringify(copyHist));},[copyHist]);
   useEffect(()=>{localStorage.setItem("cs_intel",JSON.stringify(intel));},[intel]);
   useEffect(()=>{localStorage.setItem("cs_notes",JSON.stringify(notes));},[notes]);
+  useEffect(()=>{localStorage.setItem("cs_usage",JSON.stringify(usageCount));},[usageCount]);
 
   // Timer
   useEffect(()=>{
@@ -369,8 +371,12 @@ export default function App() {
     return ms&&mc&&mt;
   });
 
+  const sortedFiltered = sortBy==="usage"
+    ? [...filtered].sort((a,b)=>(usageCount[b.id]||0)-(usageCount[a.id]||0))
+    : filtered;
+
   const groupedByCategory = CATEGORIES.slice(1).reduce((acc,cat)=>{
-    const items=filtered.filter(c=>c.category===cat);
+    const items=sortedFiltered.filter(c=>c.category===cat);
     if(items.length) acc[cat]=items;
     return acc;
   },{});
@@ -382,6 +388,7 @@ export default function App() {
       setTimeout(()=>setCopied(null),1500);
       const entry={id,title,command:resolved,at:new Date().toLocaleTimeString()};
       setCopyHist(h=>[entry,...h].slice(0,20));
+      setUsageCount(u=>({...u,[id]:(u[id]||0)+1}));
     });
   }
 
@@ -451,45 +458,6 @@ export default function App() {
       setAiResult(`[${provider.toUpperCase()}]\n\n${text}`);
     }catch(e){setAiResult(`Erro ao contactar a API (${provider}): ${e.message}`);}
     setAiLoading(false);
-  }
-
-  function exportCustomCommands(){
-    const custom = commands.filter(c => c.id > 1000);
-    if(!custom.length){ alert("Nenhum comando customizado para exportar."); return; }
-    const data = JSON.stringify({version:1, exported: new Date().toISOString(), commands: custom}, null, 2);
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([data], {type:"application/json"}));
-    a.download = `cheatsheet_commands_${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-  }
-
-  function importCommands(e){
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target.result);
-        const incoming = Array.isArray(parsed) ? parsed : parsed.commands;
-        if(!Array.isArray(incoming)) throw new Error("Formato inválido");
-        const valid = incoming.filter(c => c.title && c.command && c.category);
-        if(!valid.length) throw new Error("Nenhum comando válido encontrado");
-        const existingIds = new Set(commands.map(c => String(c.id)));
-        const newCmds = valid.map(c => ({
-          ...c,
-          id: existingIds.has(String(c.id)) ? Date.now() + Math.random() : c.id,
-          tags: Array.isArray(c.tags) ? c.tags : [],
-        }));
-        const updated = [...commands, ...newCmds];
-        setCommands(updated);
-        localStorage.setItem("cs_custom", JSON.stringify(updated.filter(c => c.id > 1000)));
-        alert(`✅ ${newCmds.length} comando(s) importado(s) com sucesso!`);
-      } catch(err) {
-        alert(`❌ Erro ao importar: ${err.message}`);
-      }
-      e.target.value = "";
-    };
-    reader.readAsText(file);
   }
 
   function exportIntel(){
@@ -639,17 +607,6 @@ export default function App() {
               style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",border:"1px solid #00ff88",borderRadius:6,fontSize:11,color:"#00ff88",background:"rgba(0,255,136,.07)"}}>
               <I n="plus" s={12}/>Novo
             </button>
-            <button className="btn" onClick={exportCustomCommands}
-              title="Exportar comandos customizados como JSON"
-              style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",border:"1px solid #30363d",borderRadius:6,fontSize:11,color:"#8b949e",background:"transparent"}}>
-              <I n="export" s={12}/>Export
-            </button>
-            <button className="btn" onClick={()=>importRef.current?.click()}
-              title="Importar comandos de arquivo JSON"
-              style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",border:"1px solid #58a6ff",borderRadius:6,fontSize:11,color:"#58a6ff",background:"rgba(88,166,255,.07)"}}>
-              <I n="import" s={12}/>Import
-            </button>
-            <input ref={importRef} type="file" accept=".json" onChange={importCommands} style={{display:"none"}}/>
             <button className="btn" onClick={()=>{ localStorage.removeItem("cs_lgpd"); window.location.reload(); }}
               title="Aviso de Privacidade (LGPD)"
               style={{padding:"5px 8px",border:"1px solid #30363d",borderRadius:6,fontSize:10,color:"#484f58",background:"transparent"}}>
@@ -702,6 +659,17 @@ export default function App() {
               );
             })}
 
+            <div style={{margin:"12px 8px 4px"}}>
+              <p style={{fontSize:9,color:"#30363d",letterSpacing:".1em",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Ordenar</p>
+              {[{v:"default",l:"Padrão"},{v:"usage",l:"🔥 Mais Usados"}].map(({v,l})=>(
+                <button key={v} className="btn" onClick={()=>setSortBy(v)}
+                  style={{width:"100%",textAlign:"left",padding:"4px 8px",borderRadius:4,fontSize:11,marginBottom:2,
+                    color:sortBy===v?"#f7c948":"#8b949e",
+                    background:sortBy===v?"rgba(247,201,72,.08)":"transparent"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
             <div style={{margin:"16px 8px 8px",borderTop:"1px solid #21262d",paddingTop:12}}>
               <p style={{fontSize:9,color:"#30363d",letterSpacing:".1em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Stats</p>
               {[
@@ -709,6 +677,7 @@ export default function App() {
                 {label:"Filtrados",val:filtered.length,color:"#00ff88"},
                 {label:"Favoritos",val:favs.size,color:"#f7c948"},
                 {label:"Custom",val:commands.filter(c=>c.id>1000).length,color:"#bc8cff"},
+                {label:"Copiados",val:Object.values(usageCount).reduce((a,b)=>a+b,0),color:"#f7c948"},
               ].map(s=>(
                 <div key={s.label} style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:4}}>
                   <span style={{color:"#8b949e"}}>{s.label}</span>
@@ -750,14 +719,14 @@ export default function App() {
                   {cat} <span style={{color:"#30363d"}}>({items.length})</span>
                 </h2>
                 <div style={{display:"grid",gap:6}}>
-                  {items.map(cmd=><CmdCard key={cmd.id} cmd={cmd} vars={vars} favs={favs} copied={copied} onCopy={copyCmd} onFav={toggleFav} onAI={(m)=>callAI(m,cmd)} onDelete={cmd.id>1000?deleteCustom:null}/>)}
+                  {items.map(cmd=><CmdCard key={cmd.id} cmd={cmd} vars={vars} favs={favs} copied={copied} usageCount={usageCount} onCopy={copyCmd} onFav={toggleFav} onAI={(m)=>callAI(m,cmd)} onDelete={cmd.id>1000?deleteCustom:null}/>)}
                 </div>
               </section>
             ))
             : (
               <div style={{display:"grid",gap:6}}>
-                {filtered.length===0&&<p style={{color:"#8b949e",fontSize:13,textAlign:"center",padding:40}}>Nenhum comando encontrado.</p>}
-                {filtered.map(cmd=><CmdCard key={cmd.id} cmd={cmd} vars={vars} favs={favs} copied={copied} onCopy={copyCmd} onFav={toggleFav} onAI={(m)=>callAI(m,cmd)} onDelete={cmd.id>1000?deleteCustom:null}/>)}
+                {sortedFiltered.length===0&&<p style={{color:"#8b949e",fontSize:13,textAlign:"center",padding:40}}>Nenhum comando encontrado.</p>}
+                {sortedFiltered.map(cmd=><CmdCard key={cmd.id} cmd={cmd} vars={vars} favs={favs} copied={copied} onCopy={copyCmd} onFav={toggleFav} onAI={(m)=>callAI(m,cmd)} onDelete={cmd.id>1000?deleteCustom:null}/>)}
               </div>
             )
           }
@@ -795,7 +764,7 @@ export default function App() {
             extra={<button className="btn" onClick={()=>{const d=JSON.stringify(favList,null,2);const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([d]));a.download="favorites.json";a.click();}} style={{fontSize:11,color:"#8b949e",display:"flex",gap:4,alignItems:"center"}}><I n="export" s={12}/>Export</button>}/>
           <div style={{padding:"0 20px 20px"}}>
             {favList.length===0?<p style={{color:"#8b949e",fontSize:13}}>Nenhum favorito ainda.</p>
-              :<div style={{display:"grid",gap:6}}>{favList.map(cmd=><CmdCard key={cmd.id} cmd={cmd} vars={vars} favs={favs} copied={copied} onCopy={copyCmd} onFav={toggleFav} onAI={m=>callAI(m,cmd)} compact/>)}</div>
+              :<div style={{display:"grid",gap:6}}>{favList.map(cmd=><CmdCard key={cmd.id} cmd={cmd} vars={vars} favs={favs} copied={copied} usageCount={usageCount} onCopy={copyCmd} onFav={toggleFav} onAI={m=>callAI(m,cmd)} compact/>)}</div>
             }
           </div>
         </div>
@@ -1032,9 +1001,7 @@ export default function App() {
                 items:[
                   "✅ Favoritos, Variáveis, Comandos customizados, Notas, Target Intel, Histórico.",
                   "❌ Comandos adicionados por outras pessoas não aparecem para você — cada usuário tem armazenamento independente.",
-                  "Use o botão Export na toolbar para baixar seus comandos customizados como JSON.",
-                  "Compartilhe o arquivo com outra pessoa — ela clica em Import e os comandos são adicionados automaticamente.",
-                  "O JSON também serve como backup dos seus comandos personalizados.",
+                  "Para compartilhar comandos, exporte pelo botão Export (ícone de download) e envie o JSON para outra pessoa importar.",
                 ]
               },
             ].map(({color,title,items})=>(
@@ -1121,17 +1088,19 @@ function IntelList({icon,label,color,items,onAdd,onDelete,placeholder}){
 }
 
 // ── COMMAND CARD ──────────────────────────────────────────────────────────────
-function CmdCard({cmd,vars,favs,copied,onCopy,onFav,onAI,onDelete,compact}){
+function CmdCard({cmd,vars,favs,copied,usageCount={},onCopy,onFav,onAI,onDelete,compact}){
   const resolved=applyVars(cmd.command,vars);
   const hasVars=Object.values(vars).some(v=>v);
   const isFav=favs.has(cmd.id);
   const isCopied=copied===cmd.id;
+  const uses=usageCount[cmd.id]||0;
   return(
     <div className="cmd-card" style={{background:"#0a0c0f",borderRadius:7,padding:compact?"10px 12px":"13px 14px"}}>
       <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,flexWrap:"wrap"}}>
             <span style={{fontSize:12,fontWeight:600,color:"#e6edf3"}}>{cmd.title}</span>
+            {uses>0&&<span title={`Copiado ${uses}x`} style={{fontSize:9,color:"#f7c948",background:"rgba(247,201,72,.1)",border:"1px solid rgba(247,201,72,.2)",borderRadius:8,padding:"0 5px",display:"flex",alignItems:"center",gap:2}}><I n="fire" s={9}/>{uses}</span>}
             {cmd.tags.map(t=><span key={t} className={`tag-pill ${TAG_STYLE[t]}`}>{TAG_LABEL[t]}</span>)}
             {!compact&&<span style={{fontSize:9,color:"#30363d",marginLeft:"auto"}}>{cmd.category}</span>}
           </div>
